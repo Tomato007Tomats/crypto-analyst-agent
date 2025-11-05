@@ -4,7 +4,7 @@
     "."
   ],
   "graphs": {
-    "crypto_analyst": "./agent/agent_graph.py:graph"
+    "crypto_analyst": "./agent/graph.py:agent"
   },
   "env": ".env"
 }
