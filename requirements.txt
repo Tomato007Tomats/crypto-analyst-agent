@@ -1,10 +1,17 @@
-fastapi
-uvicorn
-python-dotenv
-deepagents
-langchain-openai
-tiktoken
-psycopg2-binary
-sqlalchemy[asyncio]
-alembic
-asyncpg
+# Deep Agents (oficial)
+deepagents>=0.2.4
+
+# LangChain & LangGraph (versões compatíveis)
+langchain>=1.0.0
+langchain-core>=1.0.0
+langchain-openai>=1.0.0
+langgraph>=0.2.60
+
+# API Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+httpx>=0.27.0

@@ -19,6 +19,7 @@ build/
 data/
 
 # Environment
+.env
 .env.local
 .env.development.local
 .env.test.local
@@ -49,9 +50,4 @@ logs/
 # Temporary files
 tmp/
 temp/
-
-# Configuration files
-.env
-mcp_config.json
-langgraph.json
 

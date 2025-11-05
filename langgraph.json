@@ -1,0 +1,11 @@
+{
+  "python_version": "3.11",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "crypto_analyst": "./agent/agent_graph.py:graph"
+  },
+  "env": ".env"
+}
+

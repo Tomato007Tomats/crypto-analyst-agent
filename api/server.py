@@ -11,9 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from agent.database import init_db
 from agent.deep_agent import create_crypto_deep_agent
-from agent.opportunities_manager import opportunities_store, Opportunity, AddOpportunityInput as OpportunityCreate
+from agent.opportunities_manager import opportunities_store, Opportunity
 
 # Load environment
 load_dotenv()
@@ -44,11 +43,6 @@ async def startup_event():
     global agent
     print("🚀 Starting API server...")
     try:
-        # Initialize database
-        print("🔍 Initializing database...")
-        await init_db()
-        print("✅ Database initialized!")
-
         agent = await create_crypto_deep_agent()
         print("✅ Deep Agent initialized and ready!")
     except Exception as e:
@@ -77,6 +71,17 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     thread_id: Optional[str] = None
+
+
+class OpportunityCreate(BaseModel):
+    title: str
+    asset: str
+    type: str
+    confidence: float
+    rationale: str
+    sources: List[str] = []
+    metrics: Dict = {}
+    tags: List[str] = []
 
 
 class OpportunityUpdate(BaseModel):
@@ -145,7 +150,7 @@ async def get_opportunities(
     """
     try:
         tag_list = tags.split(",") if tags else None
-        opps = await opportunities_store.list_all(status=status, tags=tag_list)
+        opps = opportunities_store.list_all(status=status, tags=tag_list)
         
         return {
             "opportunities": [opp.dict() for opp in opps],
@@ -174,7 +179,7 @@ async def create_opportunity(opportunity: OpportunityCreate):
         )
         
         # Add to store
-        await opportunities_store.add(new_opp)
+        opportunities_store.add(new_opp)
         
         return {
             "success": True,
@@ -191,7 +196,7 @@ async def get_opportunity(opportunity_id: str):
     """
     Get a specific opportunity by ID
     """
-    opp = await opportunities_store.get(opportunity_id)
+    opp = opportunities_store.get(opportunity_id)
     
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -204,12 +209,12 @@ async def update_opportunity(opportunity_id: str, update: OpportunityUpdate):
     """
     Update an opportunity
     """
-    success = await opportunities_store.update(opportunity_id, update.updates)
+    success = opportunities_store.update(opportunity_id, update.updates)
     
     if not success:
         raise HTTPException(status_code=404, detail="Opportunity not found")
     
-    updated_opp = await opportunities_store.get(opportunity_id)
+    updated_opp = opportunities_store.get(opportunity_id)
     return {
         "success": True,
         "opportunity": updated_opp.dict()
@@ -221,7 +226,7 @@ async def delete_opportunity(opportunity_id: str):
     """
     Delete an opportunity
     """
-    success = await opportunities_store.delete(opportunity_id)
+    success = opportunities_store.delete(opportunity_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Opportunity not found")

@@ -27,7 +27,13 @@ async def create_crypto_deep_agent():
     """
     Create a Deep Agent using LangChain 1.0 create_agent with middleware
     
-    This agent is now fully async and uses a persistent database for opportunities.
+    Per Docs by LangChain, this provides:
+    - FilesystemMiddleware: 6 tools (ls, read_file, write_file, edit_file, glob, grep)
+    - TodoListMiddleware: 1 tool (write_todos)
+    - SubAgentMiddleware: 1 tool (task)
+    - Custom tools: MCP integration & Opportunities management
+    
+    Total: 8 built-in + 7 custom = 15 tools
     """
     print("🚀 Initializing Crypto Analyst Deep Agent...")
     
@@ -87,7 +93,7 @@ Your capabilities:
    - Track progress on complex tasks
 
 **Your Task:**
-Analyze market data, identify investment opportunities, and maintain the opportunities list in the database.
+Analyze market data, identify investment opportunities, and maintain the opportunities list.
 When you identify a potential opportunity:
 1. Gather data from multiple sources
 2. Analyze the risk/reward
@@ -117,10 +123,7 @@ When you identify a potential opportunity:
         model=model,
         tools=custom_tools,
         system_prompt=system_prompt,
-        name="crypto_analyst_agent",
-        description="Asynchronous cryptocurrency analyst agent with persistent storage.",
-        # Ensure agent can handle async tools correctly
-        handle_parsing_errors=True, 
+        name="crypto_analyst_agent"
     )
     
     print("✅ Deep Agent initialized successfully!")

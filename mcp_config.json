@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "coingecko_mcp_local": {
+      "command": "npx",
+      "args": ["-y", "@coingecko/coingecko-mcp"],
+      "env": {
+        "COINGECKO_PRO_API_KEY": "CG-WcZnUhxtRukFenSa5kUU7K8V",
+        "COINGECKO_ENVIRONMENT": "pro"
+      }
+    },
+    "firecrawl-mcp": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "fc-d541d81a734d42ffb7369d70b0ab67e8"
+      }
+    },
+    "santiment": {
+      "command": "python3",
+      "args": ["/Users/tomaztinoco/Downloads/Axos Oficial/src/api/santiment_mcp.py"],
+      "env": {
+        "PYTHONPATH": "/Users/tomaztinoco/Downloads/Axos Oficial/src/api"
+      }
+    }
+  }
+}
+
