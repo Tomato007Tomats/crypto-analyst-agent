@@ -155,12 +155,24 @@ def add_opportunity(
     type: str,
     confidence: float,
     rationale: str,
+    runtime: ToolRuntime,
     sources: Optional[List[str]] = None,
     metrics: Optional[Dict[str, Any]] = None,
     tags: Optional[List[str]] = None,
-    runtime: Optional[ToolRuntime] = None,
 ) -> str:
-    """Add a new investment opportunity to the opportunities list."""
+    """Add a new investment opportunity to the opportunities list.
+
+    Args:
+        title: Title/name of the opportunity
+        asset: Asset or cryptocurrency
+        type: Type: buy, sell, hold, watch
+        confidence: Confidence level (0-100)
+        rationale: Why this is an opportunity
+        runtime: Runtime context (injected automatically)
+        sources: Data sources used
+        metrics: Relevant metrics
+        tags: Tags for categorization
+    """
 
     opportunity_id = f"opp_{uuid4().hex[:12]}"
     created_at = datetime.utcnow().isoformat()
@@ -189,8 +201,12 @@ def add_opportunity(
 
 
 @tool
-def list_opportunities(runtime: Optional[ToolRuntime] = None) -> str:
-    """List all current investment opportunities with their details."""
+def list_opportunities(runtime: ToolRuntime) -> str:
+    """List all current investment opportunities with their details.
+
+    Args:
+        runtime: Runtime context (injected automatically)
+    """
 
     store = _get_runtime_store(runtime)
     if store:
@@ -227,11 +243,18 @@ def list_opportunities(runtime: Optional[ToolRuntime] = None) -> str:
 @tool
 def update_opportunity(
     opportunity_id: str,
+    runtime: ToolRuntime,
     status: Optional[str] = None,
     confidence: Optional[float] = None,
-    runtime: Optional[ToolRuntime] = None,
 ) -> str:
-    """Update the status or confidence of an existing opportunity."""
+    """Update the status or confidence of an existing opportunity.
+
+    Args:
+        opportunity_id: ID of the opportunity to update
+        runtime: Runtime context (injected automatically)
+        status: New status (optional)
+        confidence: New confidence level (optional)
+    """
 
     if not status and confidence is None:
         return "No updates provided"
@@ -260,8 +283,13 @@ def update_opportunity(
 
 
 @tool
-def delete_opportunity(opportunity_id: str, runtime: Optional[ToolRuntime] = None) -> str:
-    """Delete an opportunity from the opportunities list."""
+def delete_opportunity(opportunity_id: str, runtime: ToolRuntime) -> str:
+    """Delete an opportunity from the opportunities list.
+
+    Args:
+        opportunity_id: ID of the opportunity to delete
+        runtime: Runtime context (injected automatically)
+    """
 
     store = _get_runtime_store(runtime)
     if store:
