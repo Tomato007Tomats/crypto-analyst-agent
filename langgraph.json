@@ -6,6 +6,25 @@
   "graphs": {
     "crypto_analyst": "./agent/graph.py:agent"
   },
-  "env": ".env"
+  "env": ".env",
+  "store": {
+    "index": {
+      "embed": "openai:text-embedding-3-small",
+      "dims": 1536,
+      "fields": ["$"]
+    },
+    "ttl": {
+      "refresh_on_read": true,
+      "sweep_interval_minutes": 120,
+      "default_ttl": 10080
+    }
+  },
+  "checkpointer": {
+    "ttl": {
+      "strategy": "delete",
+      "sweep_interval_minutes": 60,
+      "default_ttl": 43200
+    }
+  }
 }
 
