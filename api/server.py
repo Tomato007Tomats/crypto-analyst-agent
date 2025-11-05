@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from agent.deep_agent import create_crypto_deep_agent
-from agent.opportunities_manager import opportunities_store, Opportunity
+from agent.opportunities_manager import _fallback_store, Opportunity
 
 # Load environment
 load_dotenv()
@@ -39,7 +39,7 @@ if os.getenv("VERCEL_BRANCH_URL"):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex="https://.*\.vercel\.app",  # Regex para todos os domínios Vercel
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Regex para todos os domínios Vercel
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
@@ -162,6 +162,12 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
+# =============================================================================
+# OPPORTUNITIES ROUTES (LOCAL DEVELOPMENT ONLY)
+# NOTE: In production, the frontend uses LangSmith API directly.
+# These routes use the fallback in-memory store for local testing.
+# =============================================================================
+
 @app.get("/api/opportunities")
 async def get_opportunities(
     status: Optional[str] = None,
@@ -173,7 +179,7 @@ async def get_opportunities(
     """
     try:
         tag_list = tags.split(",") if tags else None
-        opps = opportunities_store.list_all(status=status, tags=tag_list)
+        opps = _fallback_store.list_all()
         
         return {
             "opportunities": [opp.dict() for opp in opps],
@@ -202,7 +208,7 @@ async def create_opportunity(opportunity: OpportunityCreate):
         )
         
         # Add to store
-        opportunities_store.add(new_opp)
+        _fallback_store.add(new_opp)
         
         return {
             "success": True,
@@ -219,7 +225,7 @@ async def get_opportunity(opportunity_id: str):
     """
     Get a specific opportunity by ID
     """
-    opp = opportunities_store.get(opportunity_id)
+    opp = _fallback_store.get(opportunity_id)
     
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -232,12 +238,12 @@ async def update_opportunity(opportunity_id: str, update: OpportunityUpdate):
     """
     Update an opportunity
     """
-    success = opportunities_store.update(opportunity_id, update.updates)
-    
+    success = _fallback_store.update(opportunity_id, update.updates)
+
     if not success:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    
-    updated_opp = opportunities_store.get(opportunity_id)
+
+    updated_opp = _fallback_store.get(opportunity_id)
     return {
         "success": True,
         "opportunity": updated_opp.dict()
@@ -249,7 +255,7 @@ async def delete_opportunity(opportunity_id: str):
     """
     Delete an opportunity
     """
-    success = opportunities_store.delete(opportunity_id)
+    success = _fallback_store.delete(opportunity_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Opportunity not found")
