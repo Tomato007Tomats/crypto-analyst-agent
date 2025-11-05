@@ -51,3 +51,6 @@ logs/
 tmp/
 temp/
 
+# Backend repo (deployed separately)
+backend_repo/
+

@@ -24,10 +24,23 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for development
+# CORS middleware - allow Vercel domains and localhost
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://*.vercel.app",  # Todos subdomínios Vercel
+]
+
+# Em produção, adicionar domínios específicos do Vercel
+if os.getenv("VERCEL_URL"):
+    allowed_origins.append(f"https://{os.getenv('VERCEL_URL')}")
+if os.getenv("VERCEL_BRANCH_URL"):
+    allowed_origins.append(f"https://{os.getenv('VERCEL_BRANCH_URL')}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Next.js dev server
+    allow_origin_regex="https://.*\.vercel\.app",  # Regex para todos os domínios Vercel
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
