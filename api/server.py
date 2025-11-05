@@ -50,24 +50,38 @@ app.add_middleware(
 agent = None
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize agent on startup"""
+# Commented out for Vercel Serverless (lifespan events don't work well)
+# Agent initialization will happen on first request
+# @app.on_event("startup")
+# async def startup_event():
+#     """Initialize agent on startup"""
+#     global agent
+#     print("🚀 Starting API server...")
+#     try:
+#         agent = await create_crypto_deep_agent()
+#         print("✅ Deep Agent initialized and ready!")
+#     except Exception as e:
+#         print(f"❌ Error initializing agent: {e}")
+#         import traceback
+#         traceback.print_exc()
+
+
+# @app.on_event("shutdown")
+# async def shutdown_event():
+#     """Cleanup on shutdown"""
+#     print("👋 Server shutdown complete")
+
+
+async def get_agent():
+    """Lazy initialization of agent for Vercel Serverless"""
     global agent
-    print("🚀 Starting API server...")
-    try:
-        agent = await create_crypto_deep_agent()
-        print("✅ Deep Agent initialized and ready!")
-    except Exception as e:
-        print(f"❌ Error initializing agent: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    print("👋 Server shutdown complete")
+    if agent is None:
+        try:
+            agent = await create_crypto_deep_agent()
+        except Exception as e:
+            print(f"❌ Error initializing agent: {e}")
+            raise
+    return agent
 
 
 # Pydantic models for API
@@ -117,12 +131,8 @@ async def chat(request: ChatRequest):
     """
     Chat with the agent
     """
-    global agent
-    
-    if not agent:
-        raise HTTPException(status_code=503, detail="Agent not initialized")
-    
     try:
+        agent = await get_agent()
         # Invoke agent
         result = await agent.ainvoke(
             {"messages": [("user", request.message)]},
@@ -255,6 +265,8 @@ async def websocket_chat(websocket: WebSocket):
     await websocket.accept()
     
     try:
+        agent = await get_agent()
+        
         while True:
             # Receive message
             data = await websocket.receive_text()
