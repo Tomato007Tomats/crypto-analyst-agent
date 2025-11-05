@@ -24,17 +24,23 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
+      'x-api-key': apiKey,
     },
     body: JSON.stringify({
-      namespace: STORE_NAMESPACE,
+      namespace_prefix: STORE_NAMESPACE,
       limit: 500,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`LangGraph store search failed: ${errorText}`);
+    console.error('Store search error:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+      url: `${apiUrl}/store/search`,
+    });
+    throw new Error(`LangGraph store search failed (${response.status}): ${errorText}`);
   }
 
   const payload = (await response.json()) as StoreSearchResponse;

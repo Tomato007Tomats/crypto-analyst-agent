@@ -18,7 +18,7 @@ async function storeGet(id: string) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
+      'x-api-key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
@@ -46,7 +46,7 @@ async function storePut(id: string, value: Record<string, unknown>) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
+      'x-api-key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
@@ -68,7 +68,7 @@ async function storeDelete(id: string) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': apiKey,
+      'x-api-key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
