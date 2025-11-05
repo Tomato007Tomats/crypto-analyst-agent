@@ -5,279 +5,292 @@ Opportunities Manager - Tools for managing investment opportunities
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from langchain_core.tools import BaseTool, tool
+from uuid import uuid4
+
+from langchain.tools import ToolRuntime, tool
+from langgraph.store.base import BaseStore
 from pydantic import BaseModel, Field
 
 
 class Opportunity(BaseModel):
     """Schema for an investment opportunity"""
+
     id: str = Field(description="Unique identifier for the opportunity")
     title: str = Field(description="Title/name of the opportunity")
     asset: str = Field(description="Asset or cryptocurrency")
     type: str = Field(description="Type: buy, sell, hold, watch")
     confidence: float = Field(description="Confidence level (0-100)", ge=0, le=100)
     rationale: str = Field(description="Why this is an opportunity")
-    sources: List[str] = Field(default=[], description="Data sources used")
-    metrics: Dict[str, Any] = Field(default={}, description="Relevant metrics")
+    sources: List[str] = Field(default_factory=list, description="Data sources used")
+    metrics: Dict[str, Any] = Field(default_factory=dict, description="Relevant metrics")
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     expires_at: Optional[str] = Field(default=None, description="When this opportunity expires")
     status: str = Field(default="active", description="active, expired, executed, dismissed")
-    tags: List[str] = Field(default=[], description="Tags for categorization")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    updated_at: Optional[str] = Field(default=None, description="Last update timestamp")
 
 
-class AddOpportunityInput(BaseModel):
-    """Input for adding an opportunity"""
-    title: str = Field(description="Title of the opportunity")
-    asset: str = Field(description="Asset or cryptocurrency (e.g., 'bitcoin', 'ethereum')")
-    type: str = Field(description="Type: buy, sell, hold, or watch")
-    confidence: float = Field(description="Confidence level (0-100)")
-    rationale: str = Field(description="Detailed explanation of why this is an opportunity")
-    sources: List[str] = Field(default=[], description="List of data sources")
-    metrics: Dict[str, Any] = Field(default={}, description="Relevant metrics")
-    tags: List[str] = Field(default=[], description="Tags for categorization")
+DEFAULT_OPPORTUNITIES: List[Opportunity] = [
+    Opportunity(
+        id="opp_001",
+        title="Bitcoin Accumulation Opportunity",
+        asset="bitcoin",
+        type="buy",
+        confidence=75,
+        rationale="Strong support level at $60k with increasing institutional adoption",
+        sources=["coingecko", "santiment"],
+        metrics={"current_price": 61500, "support_level": 60000},
+        tags=["btc", "accumulation", "long-term"],
+    ),
+    Opportunity(
+        id="opp_002",
+        title="Ethereum Layer 2 Growth",
+        asset="ethereum",
+        type="watch",
+        confidence=85,
+        rationale="Increasing L2 activity and upcoming network upgrades",
+        sources=["santiment", "firecrawl"],
+        metrics={"l2_tvl": "10B", "network_growth": "+15%"},
+        tags=["eth", "layer2", "defi"],
+    ),
+]
+
+STORE_NAMESPACE = ("opportunities",)
 
 
+class InMemoryOpportunities:
+    """Fallback in-memory store used when LangGraph Store is unavailable."""
 
-
-class OpportunitiesStore:
-    """
-    In-memory store for opportunities (dev mode)
-    In production, this would use the LangGraph Store
-    """
-    
     def __init__(self):
-        self.opportunities: Dict[str, Opportunity] = {}
-        self._load_default_opportunities()
-    
-    def _load_default_opportunities(self):
-        """Load some default opportunities for demonstration"""
-        default_opps = [
-            Opportunity(
-                id="opp_001",
-                title="Bitcoin Accumulation Opportunity",
-                asset="bitcoin",
-                type="buy",
-                confidence=75,
-                rationale="Strong support level at $60k with increasing institutional adoption",
-                sources=["coingecko", "santiment"],
-                metrics={"current_price": 61500, "support_level": 60000},
-                tags=["btc", "accumulation", "long-term"]
-            ),
-            Opportunity(
-                id="opp_002",
-                title="Ethereum Layer 2 Growth",
-                asset="ethereum",
-                type="watch",
-                confidence=85,
-                rationale="Increasing L2 activity and upcoming network upgrades",
-                sources=["santiment", "firecrawl"],
-                metrics={"l2_tvl": "10B", "network_growth": "+15%"},
-                tags=["eth", "layer2", "defi"]
-            )
-        ]
-        
-        for opp in default_opps:
-            self.opportunities[opp.id] = opp
-    
-    def add(self, opportunity: Opportunity) -> str:
-        """Add a new opportunity"""
-        self.opportunities[opportunity.id] = opportunity
-        return opportunity.id
-    
+        self._items: Dict[str, Opportunity] = {opp.id: opp for opp in DEFAULT_OPPORTUNITIES}
+
+    def add(self, opportunity: Opportunity) -> None:
+        self._items[opportunity.id] = opportunity
+
+    def list_all(self) -> List[Opportunity]:
+        return list(self._items.values())
+
     def get(self, opportunity_id: str) -> Optional[Opportunity]:
-        """Get an opportunity by ID"""
-        return self.opportunities.get(opportunity_id)
-    
-    def list_all(self, status: Optional[str] = None, tags: Optional[List[str]] = None) -> List[Opportunity]:
-        """List all opportunities with optional filters"""
-        opps = list(self.opportunities.values())
-        
-        if status:
-            opps = [opp for opp in opps if opp.status == status]
-        
-        if tags:
-            opps = [opp for opp in opps if any(tag in opp.tags for tag in tags)]
-        
-        return opps
-    
+        return self._items.get(opportunity_id)
+
     def update(self, opportunity_id: str, updates: Dict[str, Any]) -> bool:
-        """Update an opportunity"""
-        if opportunity_id not in self.opportunities:
+        if opportunity_id not in self._items:
             return False
-        
-        opp = self.opportunities[opportunity_id]
-        for key, value in updates.items():
-            if hasattr(opp, key):
-                setattr(opp, key, value)
-        
+        current = self._items[opportunity_id]
+        updated_data = current.dict()
+        updated_data.update(updates)
+        updated_data["updated_at"] = datetime.utcnow().isoformat()
+        self._items[opportunity_id] = Opportunity(**updated_data)
         return True
-    
+
     def delete(self, opportunity_id: str) -> bool:
-        """Delete an opportunity"""
-        if opportunity_id in self.opportunities:
-            del self.opportunities[opportunity_id]
-            return True
-        return False
+        return self._items.pop(opportunity_id, None) is not None
 
 
-# Global store instance (in dev mode)
-opportunities_store = OpportunitiesStore()
+_fallback_store = InMemoryOpportunities()
 
 
-class AddOpportunityTool(BaseTool):
-    """Tool for adding new opportunities"""
-    
-    name: str = "add_opportunity"
-    description: str = """
-    Add a new investment opportunity to the opportunities list.
-    Use this when you identify a potential investment opportunity based on market data.
-    
-    Required fields:
-    - title: Clear, descriptive title
-    - asset: The cryptocurrency or asset
-    - type: One of: buy, sell, hold, watch
-    - confidence: Your confidence level (0-100)
-    - rationale: Detailed explanation with supporting data
-    
-    Optional fields:
-    - sources: List of data sources used
-    - metrics: Relevant metrics (price, volume, etc.)
-    - tags: Tags for categorization
-    """
-    args_schema: type[BaseModel] = AddOpportunityInput
-    
-    def _run(self, **kwargs) -> str:
-        """Add opportunity"""
+def _get_runtime_store(runtime: Optional[ToolRuntime]) -> Optional[BaseStore]:
+    if runtime is None:
+        return None
+    return getattr(runtime, "store", None)
+
+
+def _seed_store_if_empty(store: BaseStore) -> None:
+    try:
+        existing = store.search(STORE_NAMESPACE, limit=1)
+    except Exception:
+        existing = []
+    if existing:
+        return
+    for opportunity in DEFAULT_OPPORTUNITIES:
+        store.put(STORE_NAMESPACE, opportunity.id, opportunity.dict())
+
+
+def _list_from_store(store: BaseStore) -> List[Opportunity]:
+    _seed_store_if_empty(store)
+    try:
+        items = store.search(STORE_NAMESPACE, limit=500)
+    except Exception:
+        items = []
+    opportunities: List[Opportunity] = []
+    for item in items or []:
         try:
-            # Generate ID
-            timestamp = datetime.utcnow().timestamp()
-            opp_id = f"opp_{int(timestamp)}"
-            
-            # Create opportunity
-            opportunity = Opportunity(
-                id=opp_id,
-                **kwargs
-            )
-            
-            # Add to store
-            opportunities_store.add(opportunity)
-            
-            return f"✓ Added opportunity '{opportunity.title}' (ID: {opp_id})"
-        
-        except Exception as e:
-            return f"✗ Error adding opportunity: {str(e)}"
+            opportunities.append(Opportunity(**item.value))
+        except Exception:
+            continue
+    opportunities.sort(key=lambda opp: opp.created_at)
+    return opportunities
+
+
+def _get_from_store(store: BaseStore, opportunity_id: str) -> Optional[Opportunity]:
+    try:
+        item = store.get(STORE_NAMESPACE, opportunity_id)
+    except Exception:
+        return None
+    if not item:
+        return None
+    try:
+        return Opportunity(**item.value)
+    except Exception:
+        return None
+
+
+def _save_to_store(store: BaseStore, opportunity: Opportunity) -> None:
+    store.put(STORE_NAMESPACE, opportunity.id, opportunity.dict())
+
+
+def _delete_from_store(store: BaseStore, opportunity_id: str) -> bool:
+    existing = _get_from_store(store, opportunity_id)
+    if not existing:
+        return False
+    store.delete(STORE_NAMESPACE, opportunity_id)
+    return True
 
 
 @tool
-def list_opportunities(dummy: Optional[str] = "") -> str:
-    """List all current investment opportunities. Returns a formatted list with all details."""
-    try:
-        opps = opportunities_store.list_all()
-        
-        if not opps:
-            return "No opportunities found. The opportunities list is currently empty."
-        
-        result = f"📊 Found {len(opps)} opportunities:\n\n"
-        
-        for i, opp in enumerate(opps, 1):
-            result += f"{i}. **{opp.title}**\n"
-            result += f"   - Asset: {opp.asset.upper()}\n"
-            result += f"   - Type: {opp.type.upper()}\n"
-            result += f"   - Confidence: {opp.confidence}%\n"
-            result += f"   - Rationale: {opp.rationale}\n"
-            result += f"   - Status: {opp.status}\n"
-            if opp.tags:
-                result += f"   - Tags: {', '.join(opp.tags)}\n"
-            result += f"   - ID: {opp.id}\n"
-            result += "\n"
-        
-        return result
-    
-    except Exception as e:
-        return f"Error listing opportunities: {str(e)}"
+def add_opportunity(
+    title: str,
+    asset: str,
+    type: str,
+    confidence: float,
+    rationale: str,
+    sources: Optional[List[str]] = None,
+    metrics: Optional[Dict[str, Any]] = None,
+    tags: Optional[List[str]] = None,
+    runtime: Optional[ToolRuntime] = None,
+) -> str:
+    """Add a new investment opportunity to the opportunities list."""
+
+    opportunity_id = f"opp_{uuid4().hex[:12]}"
+    created_at = datetime.utcnow().isoformat()
+    opportunity = Opportunity(
+        id=opportunity_id,
+        title=title,
+        asset=asset,
+        type=type,
+        confidence=confidence,
+        rationale=rationale,
+        sources=sources or [],
+        metrics=metrics or {},
+        tags=tags or [],
+        created_at=created_at,
+        updated_at=created_at,
+    )
+
+    store = _get_runtime_store(runtime)
+    if store:
+        _seed_store_if_empty(store)
+        _save_to_store(store, opportunity)
+    else:
+        _fallback_store.add(opportunity)
+
+    return f"✓ Added opportunity '{opportunity.title}' (ID: {opportunity.id})"
 
 
-class UpdateOpportunityInput(BaseModel):
-    """Input for updating an opportunity"""
-    opportunity_id: str = Field(description="ID of the opportunity to update")
-    status: Optional[str] = Field(None, description="New status (active, executed, dismissed)")
-    confidence: Optional[float] = Field(None, description="New confidence level (0-100)")
+@tool
+def list_opportunities(runtime: Optional[ToolRuntime] = None) -> str:
+    """List all current investment opportunities with their details."""
+
+    store = _get_runtime_store(runtime)
+    if store:
+        opportunities = _list_from_store(store)
+    else:
+        opportunities = _fallback_store.list_all()
+
+    if not opportunities:
+        return "No opportunities found. The opportunities list is currently empty."
+
+    result = f"📊 Found {len(opportunities)} opportunities:\n\n"
+    for index, opp in enumerate(opportunities, 1):
+        result += f"{index}. **{opp.title}**\n"
+        result += f"   - Asset: {opp.asset.upper()}\n"
+        result += f"   - Type: {opp.type.upper()}\n"
+        result += f"   - Confidence: {opp.confidence}%\n"
+        result += f"   - Status: {opp.status}\n"
+        result += f"   - Created: {opp.created_at}\n"
+        if opp.updated_at:
+            result += f"   - Updated: {opp.updated_at}\n"
+        result += f"   - Rationale: {opp.rationale}\n"
+        if opp.metrics:
+            metrics_str = ", ".join(f"{k}: {v}" for k, v in opp.metrics.items())
+            result += f"   - Metrics: {metrics_str}\n"
+        if opp.sources:
+            result += f"   - Sources: {', '.join(opp.sources)}\n"
+        if opp.tags:
+            result += f"   - Tags: {', '.join(opp.tags)}\n"
+        result += f"   - ID: {opp.id}\n\n"
+
+    return result.strip()
 
 
-class UpdateOpportunityTool(BaseTool):
-    """Tool for updating opportunities"""
-    
-    name: str = "update_opportunity"
-    description: str = """
-    Update an existing opportunity's status or confidence level.
-    Provide the opportunity_id and the fields you want to update.
-    """
-    args_schema: type[BaseModel] = UpdateOpportunityInput
-    
-    def _run(self, opportunity_id: str, status: Optional[str] = None, confidence: Optional[float] = None) -> str:
-        """Update opportunity"""
-        try:
-            updates = {}
-            if status:
-                updates["status"] = status
-            if confidence:
-                updates["confidence"] = confidence
-                
-            if not updates:
-                return "No updates provided"
-            
-            success = opportunities_store.update(opportunity_id, updates)
-            
-            if success:
-                return f"✓ Updated opportunity {opportunity_id} with {updates}"
-            else:
-                return f"✗ Opportunity {opportunity_id} not found"
-        
-        except Exception as e:
-            return f"Error updating opportunity: {str(e)}"
+@tool
+def update_opportunity(
+    opportunity_id: str,
+    status: Optional[str] = None,
+    confidence: Optional[float] = None,
+    runtime: Optional[ToolRuntime] = None,
+) -> str:
+    """Update the status or confidence of an existing opportunity."""
+
+    if not status and confidence is None:
+        return "No updates provided"
+
+    updates: Dict[str, Any] = {}
+    if status:
+        updates["status"] = status
+    if confidence is not None:
+        updates["confidence"] = confidence
+    updates["updated_at"] = datetime.utcnow().isoformat()
+
+    store = _get_runtime_store(runtime)
+    if store:
+        existing = _get_from_store(store, opportunity_id)
+        if not existing:
+            return f"✗ Opportunity {opportunity_id} not found"
+        updated_data = existing.dict()
+        updated_data.update(updates)
+        _save_to_store(store, Opportunity(**updated_data))
+    else:
+        success = _fallback_store.update(opportunity_id, updates)
+        if not success:
+            return f"✗ Opportunity {opportunity_id} not found"
+
+    return f"✓ Updated opportunity {opportunity_id}"
 
 
-class DeleteOpportunityInput(BaseModel):
-    """Input for deleting an opportunity"""
-    opportunity_id: str = Field(description="ID of the opportunity to delete")
+@tool
+def delete_opportunity(opportunity_id: str, runtime: Optional[ToolRuntime] = None) -> str:
+    """Delete an opportunity from the opportunities list."""
 
+    store = _get_runtime_store(runtime)
+    if store:
+        success = _delete_from_store(store, opportunity_id)
+    else:
+        success = _fallback_store.delete(opportunity_id)
 
-class DeleteOpportunityTool(BaseTool):
-    """Tool for deleting opportunities"""
-    
-    name: str = "delete_opportunity"
-    description: str = """
-    Delete an opportunity from the list.
-    Provide the opportunity_id to delete.
-    """
-    args_schema: type[BaseModel] = DeleteOpportunityInput
-    
-    def _run(self, opportunity_id: str) -> str:
-        """Delete opportunity"""
-        try:
-            success = opportunities_store.delete(opportunity_id)
-            
-            if success:
-                return f"✓ Deleted opportunity {opportunity_id}"
-            else:
-                return f"✗ Opportunity {opportunity_id} not found"
-        
-        except Exception as e:
-            return f"Error deleting opportunity: {str(e)}"
+    if success:
+        return f"✓ Deleted opportunity {opportunity_id}"
+    return f"✗ Opportunity {opportunity_id} not found"
 
 
 def get_opportunities_tools() -> List:
-    """Get all opportunities management tools"""
+    """Return the opportunities management tools list."""
+
     return [
-        AddOpportunityTool(),
-        list_opportunities,  # Simple function instead of Tool class
-        UpdateOpportunityTool(),
-        DeleteOpportunityTool(),
+        add_opportunity,
+        list_opportunities,
+        update_opportunity,
+        delete_opportunity,
     ]
 
 
-def get_opportunities_json() -> str:
-    """Get all opportunities as JSON (for API)"""
-    opps = opportunities_store.list_all()
-    return json.dumps([opp.dict() for opp in opps], indent=2)
+def get_opportunities_json(store: Optional[BaseStore] = None) -> str:
+    """Utility helper to export opportunities as JSON."""
+
+    if store:
+        opportunities = [opp.dict() for opp in _list_from_store(store)]
+    else:
+        opportunities = [opp.dict() for opp in _fallback_store.list_all()]
+    return json.dumps(opportunities, indent=2)
 
