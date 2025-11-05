@@ -4,20 +4,21 @@ const LANGSMITH_API_URL = process.env.LANGSMITH_API_URL;
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 const STORE_NAMESPACE = ['opportunities'];
 
-function ensureConfig() {
+function ensureConfig(): { apiUrl: string; apiKey: string } {
   if (!LANGSMITH_API_URL || !LANGSMITH_API_KEY) {
     throw new Error('Missing LangSmith configuration');
   }
+  return { apiUrl: LANGSMITH_API_URL, apiKey: LANGSMITH_API_KEY };
 }
 
 async function storeGet(id: string) {
-  ensureConfig();
+  const { apiUrl, apiKey } = ensureConfig();
 
-  const response = await fetch(`${LANGSMITH_API_URL}/store/get`, {
+  const response = await fetch(`${apiUrl}/store/get`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': LANGSMITH_API_KEY,
+      'X-Api-Key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
@@ -39,13 +40,13 @@ async function storeGet(id: string) {
 }
 
 async function storePut(id: string, value: Record<string, unknown>) {
-  ensureConfig();
+  const { apiUrl, apiKey } = ensureConfig();
 
-  const response = await fetch(`${LANGSMITH_API_URL}/store/put`, {
+  const response = await fetch(`${apiUrl}/store/put`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': LANGSMITH_API_KEY,
+      'X-Api-Key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
@@ -61,13 +62,13 @@ async function storePut(id: string, value: Record<string, unknown>) {
 }
 
 async function storeDelete(id: string) {
-  ensureConfig();
+  const { apiUrl, apiKey } = ensureConfig();
 
-  const response = await fetch(`${LANGSMITH_API_URL}/store/delete`, {
+  const response = await fetch(`${apiUrl}/store/delete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': LANGSMITH_API_KEY,
+      'X-Api-Key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,

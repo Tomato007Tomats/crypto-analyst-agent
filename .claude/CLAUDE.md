@@ -1,0 +1,12 @@
+sua fonte de conhecimento é o langgraph-knowledge-server **A query é sempre em ingles**
+
+
+***REGRA INVIOLAVEL***
+
+ Use a sua fonte de conhecimento TODO MOMENTO, principalmente se deparar com um erro!
+
+ Colete o Maximo de dados por Retrieve! top_k: 25 
+ Colete o Maximo de dados por Retrieve! top_k: 25 
+ Colete o Maximo de dados por Retrieve! top_k: 25 
+
+***REGRA INVIOLAVE***

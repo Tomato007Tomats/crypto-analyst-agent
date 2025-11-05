@@ -17,11 +17,14 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
     throw new Error('Missing LangSmith configuration');
   }
 
-  const response = await fetch(`${LANGSMITH_API_URL}/store/search`, {
+  const apiUrl = LANGSMITH_API_URL;
+  const apiKey = LANGSMITH_API_KEY;
+
+  const response = await fetch(`${apiUrl}/store/search`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': LANGSMITH_API_KEY,
+      'X-Api-Key': apiKey,
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
