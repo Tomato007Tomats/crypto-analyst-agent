@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+deepagents
+langchain-openai
+tiktoken
+psycopg2-binary
+sqlalchemy[asyncio]
+alembic
+asyncpg
