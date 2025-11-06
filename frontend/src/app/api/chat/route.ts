@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
+        'x-api-key': apiKey,
       },
       body: JSON.stringify({
         assistant_id: 'crypto_analyst',  // Nome do graph conforme registrado no LangSmith

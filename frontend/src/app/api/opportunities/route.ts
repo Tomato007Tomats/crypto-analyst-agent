@@ -43,7 +43,7 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
     body: requestBody,
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': `${apiKey.substring(0, 10)}...`,
+      'x-api-key': `${apiKey.substring(0, 10)}...`,
     },
   });
 
@@ -52,7 +52,7 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
+        'x-api-key': apiKey,
         'Accept': 'application/json',
       },
       body: JSON.stringify(requestBody),
