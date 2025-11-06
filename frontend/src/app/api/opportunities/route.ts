@@ -29,8 +29,9 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
   const apiKey = LANGSMITH_API_KEY;
   const requestUrl = `${apiUrl}/store/search`;
   const requestBody = {
-    namespace_prefix: STORE_NAMESPACE,
+    namespace_prefix: STORE_NAMESPACE, // Será convertido para tuple no backend
     limit: 500,
+    offset: 0,
   };
 
   console.log('📤 Making request:', {
@@ -38,7 +39,7 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
     body: requestBody,
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': `${apiKey.substring(0, 10)}...`,
+      'X-Api-Key': `${apiKey.substring(0, 10)}...`,
     },
   });
 
@@ -48,8 +49,10 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
       headers: {
         'Content-Type': 'application/json',
         'X-Api-Key': apiKey,
+        'Accept': 'application/json',
       },
       body: JSON.stringify(requestBody),
+      cache: 'no-store',
     });
 
     console.log('📥 Response received:', {
