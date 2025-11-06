@@ -13,42 +13,84 @@ interface StoreSearchResponse {
 }
 
 async function storeSearch(): Promise<Record<string, unknown>[]> {
+  console.log('🔍 Starting store search...');
+  console.log('Environment check:', {
+    hasApiUrl: !!LANGSMITH_API_URL,
+    hasApiKey: !!LANGSMITH_API_KEY,
+    apiUrl: LANGSMITH_API_URL,
+  });
+
   if (!LANGSMITH_API_URL || !LANGSMITH_API_KEY) {
+    console.error('❌ Missing LangSmith configuration');
     throw new Error('Missing LangSmith configuration');
   }
 
   const apiUrl = LANGSMITH_API_URL;
   const apiKey = LANGSMITH_API_KEY;
+  const requestUrl = `${apiUrl}/store/search`;
+  const requestBody = {
+    namespace_prefix: STORE_NAMESPACE,
+    limit: 500,
+  };
 
-  const response = await fetch(`${apiUrl}/store/search`, {
-    method: 'POST',
+  console.log('📤 Making request:', {
+    url: requestUrl,
+    body: requestBody,
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+      'x-api-key': `${apiKey.substring(0, 10)}...`,
     },
-    body: JSON.stringify({
-      namespace_prefix: STORE_NAMESPACE,
-      limit: 500,
-    }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Store search error:', {
+  try {
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('📥 Response received:', {
       status: response.status,
       statusText: response.statusText,
-      body: errorText,
-      url: `${apiUrl}/store/search`,
+      headers: Object.fromEntries(response.headers.entries()),
     });
-    throw new Error(`LangGraph store search failed (${response.status}): ${errorText}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Store search error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+        url: requestUrl,
+      });
+      throw new Error(`LangGraph store search failed (${response.status}): ${errorText}`);
+    }
+
+    const payload = (await response.json()) as StoreSearchResponse;
+    console.log('✅ Response parsed:', {
+      itemCount: payload.items?.length ?? 0,
+      items: payload.items,
+    });
+
+    const items = payload.items ?? [];
+
+    const filtered = items
+      .filter((item) => Array.isArray(item.namespace) && item.namespace.join() === STORE_NAMESPACE.join())
+      .map((item) => ({ ...item.value, id: item.key }));
+
+    console.log('✅ Filtered opportunities:', {
+      count: filtered.length,
+      opportunities: filtered,
+    });
+
+    return filtered;
+  } catch (error) {
+    console.error('❌ Exception in storeSearch:', error);
+    throw error;
   }
-
-  const payload = (await response.json()) as StoreSearchResponse;
-  const items = payload.items ?? [];
-
-  return items
-    .filter((item) => Array.isArray(item.namespace) && item.namespace.join() === STORE_NAMESPACE.join())
-    .map((item) => ({ ...item.value, id: item.key }));
 }
 
 export async function GET() {
