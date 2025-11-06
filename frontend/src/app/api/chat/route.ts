@@ -3,11 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route needs to handle requests at runtime
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const maxDuration = 60; // Maximum duration for streaming responses
 
 const LANGSMITH_API_URL = process.env.LANGSMITH_API_URL;
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 
 export async function POST(request: NextRequest) {
+  const requestTimeout = setTimeout(() => {
+    console.error('⏰ Request approaching timeout after 55 seconds');
+  }, 55000); // Warn before Vercel kills it at 60s
+
   try {
     const { message } = await request.json();
 
@@ -29,13 +34,18 @@ export async function POST(request: NextRequest) {
     const apiUrl = LANGSMITH_API_URL;
     const apiKey = LANGSMITH_API_KEY;
 
+    // Add timeout for fetch request
+    const controller = new AbortController();
+    const fetchTimeout = setTimeout(() => controller.abort(), 50000); // 50s timeout
+
     // Call LangSmith API - stateless run
     const response = await fetch(`${apiUrl}/runs/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
+        'X-Api-Key': apiKey, // Uppercase as per LangGraph Server API docs
       },
+      signal: controller.signal,
       body: JSON.stringify({
         assistant_id: 'crypto_analyst',  // Nome do graph conforme registrado no LangSmith
         input: {
@@ -49,6 +59,8 @@ export async function POST(request: NextRequest) {
         stream_mode: 'values',
       }),
     });
+
+    clearTimeout(fetchTimeout);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -119,9 +131,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    clearTimeout(requestTimeout);
     return NextResponse.json({ response: fullResponse || 'No response received' });
   } catch (error) {
-    console.error('Error in chat API:', error);
+    clearTimeout(requestTimeout);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('❌ Chat request timeout');
+      return NextResponse.json(
+        { error: 'Request timeout - Agent took too long to respond' },
+        { status: 504 }
+      );
+    }
+
+    console.error('Error in chat API:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

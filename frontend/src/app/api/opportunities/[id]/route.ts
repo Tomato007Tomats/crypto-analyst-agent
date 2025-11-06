@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 // Force dynamic rendering - this route needs to handle requests at runtime
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const maxDuration = 30; // Maximum duration for individual operations
 
 const LANGSMITH_API_URL = process.env.LANGSMITH_API_URL;
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
@@ -22,12 +23,13 @@ async function storeGet(id: string) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+      'X-Api-Key': apiKey, // Uppercase as per LangGraph Server API docs
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
       key: id,
     }),
+    signal: AbortSignal.timeout(15000), // 15s timeout
   });
 
   if (response.status === 404) {
@@ -50,13 +52,14 @@ async function storePut(id: string, value: Record<string, unknown>) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+      'X-Api-Key': apiKey, // Uppercase as per LangGraph Server API docs
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
       key: id,
       value,
     }),
+    signal: AbortSignal.timeout(15000), // 15s timeout
   });
 
   if (!response.ok) {
@@ -72,12 +75,13 @@ async function storeDelete(id: string) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+      'X-Api-Key': apiKey, // Uppercase as per LangGraph Server API docs
     },
     body: JSON.stringify({
       namespace: STORE_NAMESPACE,
       key: id,
     }),
+    signal: AbortSignal.timeout(15000), // 15s timeout
   });
 
   if (response.status === 404) {

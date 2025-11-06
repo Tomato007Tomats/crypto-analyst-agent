@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 // Force dynamic rendering - this route needs to fetch data at request time
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const maxDuration = 60; // Maximum duration in seconds (Vercel Pro: up to 300s)
 
 const LANGSMITH_API_URL = process.env.LANGSMITH_API_URL;
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
@@ -33,8 +34,8 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
   const apiKey = LANGSMITH_API_KEY;
   const requestUrl = `${apiUrl}/store/search`;
   const requestBody = {
-    namespace_prefix: STORE_NAMESPACE, // Será convertido para tuple no backend
-    limit: 500,
+    namespace_prefix: STORE_NAMESPACE,
+    limit: 50, // Reduced from 500 to avoid Vercel 4.5MB limit
     offset: 0,
   };
 
@@ -43,20 +44,27 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
     body: requestBody,
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': `${apiKey.substring(0, 10)}...`,
+      'X-Api-Key': `${apiKey.substring(0, 10)}...`,
     },
   });
+
+  // Add timeout handling
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
 
   try {
     const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
+        'X-Api-Key': apiKey, // Uppercase as per LangGraph Server API docs
         'Accept': 'application/json',
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     console.log('📥 Response received:', {
       status: response.status,
@@ -65,14 +73,31 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Store search error:', {
+      let errorDetails;
+      const contentType = response.headers.get('content-type');
+
+      try {
+        if (contentType?.includes('application/json')) {
+          errorDetails = await response.json();
+        } else {
+          errorDetails = await response.text();
+        }
+      } catch (e) {
+        errorDetails = 'Could not parse error response';
+      }
+
+      const errorInfo = {
         status: response.status,
         statusText: response.statusText,
-        body: errorText,
         url: requestUrl,
-      });
-      throw new Error(`LangGraph store search failed (${response.status}): ${errorText}`);
+        requestBody: requestBody,
+        errorDetails: errorDetails,
+        headers: Object.fromEntries(response.headers.entries()),
+        timestamp: new Date().toISOString(),
+      };
+
+      console.error('❌ Store search error:', JSON.stringify(errorInfo, null, 2));
+      throw new Error(`LangGraph store search failed: ${JSON.stringify(errorInfo)}`);
     }
 
     const payload = (await response.json()) as StoreSearchResponse;
@@ -94,7 +119,18 @@ async function storeSearch(): Promise<Record<string, unknown>[]> {
 
     return filtered;
   } catch (error) {
-    console.error('❌ Exception in storeSearch:', error);
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('❌ Request timeout after 30 seconds');
+      throw new Error('Request timeout - LangGraph API took too long to respond');
+    }
+
+    console.error('❌ Exception in storeSearch:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
     throw error;
   }
 }
