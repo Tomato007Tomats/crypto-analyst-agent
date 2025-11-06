@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering - this route needs to handle requests at runtime
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const LANGSMITH_API_URL = process.env.LANGSMITH_API_URL;
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 const STORE_NAMESPACE = ['opportunities'];
